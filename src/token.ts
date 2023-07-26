@@ -9,6 +9,8 @@ export enum TokenKind {
 	Number = "Number",
 	Identifier = "Identifier",
 	Keyword = "Keyword",
+	Boolean = "Boolean",
+	Null = "Null",
 
 	EOF = "EOF"
 };

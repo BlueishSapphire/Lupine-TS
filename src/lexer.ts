@@ -59,7 +59,10 @@ const KEYWORDS = [
 	"fn",
 	"class",
 	"in",
-]
+];
+const isKeyword = (s: string): boolean => KEYWORDS.includes(s);
+const isBoolean = (s: string): boolean => ["true", "false"].includes(s);
+const isNull = (s: string): boolean => ["null"].includes(s);
 
 
 
@@ -241,9 +244,19 @@ class Lexer {
 
 		let identifier = this.eatCharsOfType(isIdentifier);
 
-		if (identifier in KEYWORDS) {
+		if (isKeyword(identifier)) {
 			return {
 				kind: TokenKind.Keyword,
+				value: identifier,
+			};
+		} else if (isBoolean(identifier)) {
+			return {
+				kind: TokenKind.Boolean,
+				value: identifier,
+			};
+		} else if (isNull(identifier)) {
+			return {
+				kind: TokenKind.Null,
 				value: identifier,
 			};
 		} else {
