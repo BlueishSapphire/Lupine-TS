@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    // "incremental": true,
+    // "tsBuildInfoFile": "./.tsbuildinfo",
+    "target": "es2016",
+    "module": "commonjs",
+    "rootDir": "./src",
+    "moduleResolution": "node16",
+    "inlineSourceMap": true,
+    // "outFile": "./"
+    "outDir": "./build",
+    "removeComments": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictBindCallApply": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "skipLibCheck": true
+  }
+}
