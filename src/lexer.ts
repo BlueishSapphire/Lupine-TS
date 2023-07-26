@@ -204,7 +204,7 @@ class Lexer {
 
 	private tokenizeNumber(): Token {
 		if (!isNumberStart(this.current())) {
-			throw new LexerError("This error should be impossible");
+			throw new LexerError("[Internal] tokenizeNumber called on a non-number token");
 		}
 
 		let value = this.current();
@@ -239,7 +239,7 @@ class Lexer {
 
 	private tokenizeIdentifier(): Token {
 		if (!isIdentifierStart(this.current())) {
-			throw new LexerError("This error should be impossible");
+			throw new LexerError("[Internal] tokenizeIdentifier called on a non-identifier token");
 		}
 
 		let identifier = this.eatCharsOfType(isIdentifier);
@@ -269,7 +269,7 @@ class Lexer {
 
 	private tokenizeString(quote: string): Token {
 		if (isQuote(this.current())) {
-			throw new LexerError("This error should be impossible");
+			throw new LexerError("[Internal] tokenizeString called on a non-quote token");
 		}
 
 		let value = "";
