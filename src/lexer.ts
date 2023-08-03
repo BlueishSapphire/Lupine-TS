@@ -1,4 +1,4 @@
-import { Token, TokenKind } from "./token";
+import * as tok from "./token";
 
 
 
@@ -113,8 +113,8 @@ class Lexer {
 		}
 	}
 
-	tokenize(): Token[] {
-		let tokens: Token[] = [];
+	tokenize(): tok.Token[] {
+		let tokens: tok.Token[] = [];
 
 		while (!this.isEOF()) {
 			let current = this.current();
@@ -125,16 +125,10 @@ class Lexer {
 				this.skipLine();
 				this.next();
 			} else if (isGrouping(current)) {
-				tokens.push({
-					kind: TokenKind.Grouping,
-					value: current,
-				});
+				tokens.push(new tok.Grouping(current));
 				this.next();
 			} else if (isPunctuation(current)) {
-				tokens.push({
-					kind: TokenKind.Punctuation,
-					value: current,
-				});
+				tokens.push(new tok.Punctuation(current));
 				this.next();
 			} else if (isNumberStart(current)) {
 				tokens.push(this.tokenizeNumber());
@@ -143,18 +137,12 @@ class Lexer {
 			} else if (isQuote(current)) {
 				let quote = current;
 
-				tokens.push({
-					kind: TokenKind.Quote,
-					value: quote,
-				});
+				tokens.push(new tok.Quote(current));
 				this.next();
 
 				tokens.push(this.tokenizeString(quote));
 
-				tokens.push({
-					kind: TokenKind.Quote,
-					value: quote,
-				});
+				tokens.push(new tok.Quote(current));
 				this.next();
 			} else {
 				if (!isSingleOp(current)) {
@@ -178,17 +166,11 @@ class Lexer {
 					}
 				}
 
-				tokens.push({
-					kind: TokenKind.Operator,
-					value,
-				});
+				tokens.push(new tok.Operator(current));
 			}
 		}
 
-		tokens.push({
-			kind: TokenKind.EOF,
-			value: "\0",
-		});
+		tokens.push(new tok.EOF());
 
 		return tokens;
 	}
@@ -202,7 +184,7 @@ class Lexer {
 		return value;
 	}
 
-	private tokenizeNumber(): Token {
+	private tokenizeNumber(): tok.Number {
 		if (!isNumberStart(this.current())) {
 			throw new LexerError("[Internal] tokenizeNumber called on a non-number token");
 		}
@@ -215,6 +197,11 @@ class Lexer {
 
 			if (isDecDigit(peek)) {
 				value += this.eatCharsOfType(isDecDigit);
+				if (this.current() == ".") {
+					value += ".";
+					this.next();
+					value += this.eatCharsOfType(isDecDigit);
+				}
 			} else if (["x", "b"].includes(peek)) {
 				if (value !== "0") {
 					throw new LexerError(`Numbers in hexadecimal or binary must begin with a '0', but instead found '${value}' at position ${this.position}`);
@@ -231,43 +218,28 @@ class Lexer {
 			}
 		}
 
-		return {
-			kind: TokenKind.Number,
-			value,
-		};
+		return new tok.Number(value);
 	}
 
-	private tokenizeIdentifier(): Token {
+	private tokenizeIdentifier(): tok.Identifier {
 		if (!isIdentifierStart(this.current())) {
 			throw new LexerError("[Internal] tokenizeIdentifier called on a non-identifier token");
 		}
 
-		let identifier = this.eatCharsOfType(isIdentifier);
+		let value = this.eatCharsOfType(isIdentifier);
 
-		if (isKeyword(identifier)) {
-			return {
-				kind: TokenKind.Keyword,
-				value: identifier,
-			};
-		} else if (isBoolean(identifier)) {
-			return {
-				kind: TokenKind.Boolean,
-				value: identifier,
-			};
-		} else if (isNull(identifier)) {
-			return {
-				kind: TokenKind.Null,
-				value: identifier,
-			};
+		if (isKeyword(value)) {
+			return new tok.Keyword(value);
+		} else if (isBoolean(value)) {
+			return new tok.Boolean(value);
+		} else if (isNull(value)) {
+			return new tok.Null(value);
 		} else {
-			return {
-				kind: TokenKind.Identifier,
-				value: identifier,
-			};
+			return new tok.Identifier(value);
 		}
 	}
 
-	private tokenizeString(quote: string): Token {
+	private tokenizeString(quote: string): tok.String {
 		if (isQuote(this.current())) {
 			throw new LexerError("[Internal] tokenizeString called on a non-quote token");
 		}
@@ -283,10 +255,7 @@ class Lexer {
 			this.next();
 		}
 
-		return {
-			kind: TokenKind.String,
-			value,
-		};
+		return new tok.String(value);
 	}
 }
 
