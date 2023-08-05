@@ -1,3 +1,4 @@
+import * as ops from "./ops";
 import * as tok from "./token";
 
 
@@ -18,7 +19,7 @@ const isWhiteSpace = (s: string) => /^\s$/.test(s);
 
 const isGrouping = (s: string): boolean => ["(", ")", "[", "]", "{", "}"].includes(s);
 const isQuote = (s: string): boolean => ["'", '"'].includes(s);
-const isComment = (s: string): boolean => ["#"].includes(s);
+const isLineComment = (s: string): boolean => ["#"].includes(s);
 const isPunctuation = (s: string): boolean => [".", ",", ":", ";"].includes(s);
 
 const isNumberStart = (s: string): boolean => /^[0-9]$/.test(s);
@@ -29,21 +30,21 @@ const isBinDigit = (s: string): boolean => /^[0-1]$/.test(s);
 const isIdentifierStart = (s: string): boolean => /^[A-Za-z_]$/.test(s);
 const isIdentifier = (s: string): boolean => /^[A-Za-z_0-9]$/.test(s);
 
-// single, eg. %
-const CHAR_SINGLE_OP = ["=", "!", ">", "<", "+", "-", "*", "/", "%", "&", "|", "^", "~"];
-const isSingleOp = (s: string): boolean => CHAR_SINGLE_OP.includes(s);
+// // single, eg. %
+// const CHAR_SINGLE_OP = ["=", "!", ">", "<", "+", "-", "*", "/", "%", "&", "|", "^", "~"];
+// const isSingleOp = (s: string): boolean => CHAR_SINGLE_OP.includes(s);
 
-// double, eg. ==
-const CHAR_DOUBLE_OP = ["=", "&", "|", "*", "?", "+", "-", "/"];
-const isDoubleOp = (s: string): boolean => CHAR_DOUBLE_OP.includes(s);
+// // double, eg. ==
+// const CHAR_DOUBLE_OP = ["=", "&", "|", "*", "?", "+", "-", "/"];
+// const isDoubleOp = (s: string): boolean => CHAR_DOUBLE_OP.includes(s);
 
-// single + an equal sign, eg. !=
-const CHAR_SINGLE_EQ_OP = ["!", ">", "<", "+", "-", "*", "/", "%"];
-const isSingleEqualsOp = (s: string): boolean => CHAR_SINGLE_EQ_OP.includes(s);
+// // single + an equal sign, eg. !=
+// const CHAR_SINGLE_EQ_OP = ["!", ">", "<", "+", "-", "*", "/", "%"];
+// const isSingleEqualsOp = (s: string): boolean => CHAR_SINGLE_EQ_OP.includes(s);
 
-// double + an equal sign, eg. &&=
-const CHAR_DOUBLE_EQ_OP = ["&", "|", "*", "?", "/", ">", "<"];
-const isDoubleEqualsOp = (s: string): boolean => CHAR_DOUBLE_EQ_OP.includes(s);
+// // double + an equal sign, eg. &&=
+// const CHAR_DOUBLE_EQ_OP = ["&", "|", "*", "?", "/", ">", "<"];
+// const isDoubleEqualsOp = (s: string): boolean => CHAR_DOUBLE_EQ_OP.includes(s);
 
 
 
@@ -120,56 +121,63 @@ class Lexer {
 			let current = this.current();
 
 			if (isWhiteSpace(current)) {
+				// log(`Found whitespace`);
 				this.next();
-			} else if (isComment(current)) {
+			} else if (isLineComment(current)) {
+				log(`Found single-line comment`);
+				log(`-> skipping line`);
 				this.skipLine();
 				this.next();
 			} else if (isGrouping(current)) {
+				log(`Found grouping`);
 				tokens.push(new tok.Grouping(current));
 				this.next();
 			} else if (isPunctuation(current)) {
+				log(`Found punctuation`);
 				tokens.push(new tok.Punctuation(current));
 				this.next();
 			} else if (isNumberStart(current)) {
+				log(`Found number`);
 				tokens.push(this.tokenizeNumber());
 			} else if (isIdentifierStart(current)) {
+				log(`Found identifier`);
 				tokens.push(this.tokenizeIdentifier());
 			} else if (isQuote(current)) {
+				log(`Found quote`);
 				let quote = current;
 
 				tokens.push(new tok.Quote(current));
 				this.next();
 
+				log(`Found string`);
 				tokens.push(this.tokenizeString(quote));
 
+				log(`Found quote`);
 				tokens.push(new tok.Quote(current));
 				this.next();
 			} else {
-				if (!isSingleOp(current)) {
+				if (!ops.isOperator(current)) {
 					throw new LexerError(`Unrecognized token '${current}'`);
 				}
+
+				log(`Found operator (${current})`);
 
 				let value = current;
 				this.next();
 
-				const peek = this.canPeek() ? this.peek() : null;
-				if (isSingleEqualsOp(current) && peek == "=") {
-					value += "=";
-					this.next();
-				} else if (isDoubleOp(current) && peek == current) {
+				current = this.current();
+				while (ops.isOperator(value + current)) {
 					value += current;
+					log(`-> longer operator (${value})`);
 					this.next();
-
-					if (isDoubleEqualsOp(current) && peek == "=") {
-						value += "=";
-						this.next();
-					}
+					current = this.current();
 				}
 
-				tokens.push(new tok.Operator(current));
+				tokens.push(new tok.Operator(value));
 			}
 		}
 
+		log(`Found EOF`);
 		tokens.push(new tok.EOF());
 
 		return tokens;
@@ -196,10 +204,13 @@ class Lexer {
 			let peek = this.peek();
 
 			if (isDecDigit(peek)) {
+				log(`-> decimal number (integral part)`);
 				value += this.eatCharsOfType(isDecDigit);
 				if (this.current() == ".") {
+					log(`-> radix point`);
 					value += ".";
 					this.next();
+					log(`-> decimal number (fractional part)`);
 					value += this.eatCharsOfType(isDecDigit);
 				}
 			} else if (["x", "b"].includes(peek)) {
@@ -209,8 +220,10 @@ class Lexer {
 
 				value += peek;
 				if (peek == "x") {
+					log(`-> hexadecimal`);
 					value += this.eatCharsOfType(isHexDigit);
 				} else if (peek == "b") {
+					log(`-> binary`);
 					value += this.eatCharsOfType(isBinDigit);
 				} else {
 					throw new LexerError(`Unsupported number type: '0${peek}' at position ${this.position + 1}`)
@@ -229,12 +242,16 @@ class Lexer {
 		let value = this.eatCharsOfType(isIdentifier);
 
 		if (isKeyword(value)) {
+			log(`-> keyword`);
 			return new tok.Keyword(value);
 		} else if (isBoolean(value)) {
+			log(`-> boolean`);
 			return new tok.Boolean(value);
 		} else if (isNull(value)) {
+			log(`-> null`);
 			return new tok.Null(value);
 		} else {
+			log(`-> identifier`);
 			return new tok.Identifier(value);
 		}
 	}
@@ -248,6 +265,7 @@ class Lexer {
 
 		while (!this.isEOF() && this.current() !== quote) {
 			if (this.current() == "\\") {
+				log(`-> escape`);
 				value += this.current();
 				this.next();
 			}
@@ -262,6 +280,10 @@ class Lexer {
 
 
 export function tokenize(input: string) {
+	log(`Tokenizing input of length ${input.length}...`);
 	let lex = new Lexer(input);
-	return lex.tokenize();
+	let tokens = lex.tokenize();
+	log(`Done lexing. Returning ${tokens.length} tokens.`);
+	log(`Output:\n-> ${tokens.join("\n-> ")}`);
+	return tokens;
 }
