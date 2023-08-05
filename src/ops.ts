@@ -1,4 +1,14 @@
+// weird quirk, all operators that consist of multiple characters
+// must start with a single-character operator
+
 export namespace chars {
+	export const MEMBER = ".";
+	export const MEMBER_NULLISH = "?.";
+
+	export const FOR = "->";
+	export const BETWEEN = "..";
+	export const SPREAD = "...";
+
 	export const ADD = "+";
 	export const SUB = "-";
 	export const MULT = "*";
@@ -84,24 +94,28 @@ const multiply = [ chars.MULT, chars.DIV, chars.MOD, chars.INTDIV ];
 const exponent = [ chars.POW ];
 const binary = [ chars.BIT_AND, chars.BIT_OR, chars.BIT_XOR ];
 const shift = [ chars.BIT_LSHIFT, chars.BIT_RSHIFT ];
-const unary = [ chars.BOOL_NOT, chars.BIT_INV ];
+const between = [ chars.BETWEEN ];
+const unary = [ chars.BOOL_NOT, chars.BIT_INV, chars.SPREAD ];
+const member = [ chars.MEMBER, chars.MEMBER_NULLISH ];
 
 
 
-export const ALL = [...assignment, ...bool, ...compare, ...add, ...multiply, ...exponent, ...binary, ...shift, ...unary];
+export const ALL = [chars.FOR, ...member, ...between, ...assignment, ...bool, ...compare, ...add, ...multiply, ...exponent, ...binary, ...shift, ...unary];
 export const isOperator = (s: string): boolean => ALL.includes(s);
 
 
 
 export function getPrecedence(op: string): number {
+	if (member.includes(op))     return 11;
+	if (unary.includes(op))      return 10;
+	if (between.includes(op))    return 9;
+	if (shift.includes(op))      return 8;
+	if (binary.includes(op))     return 7;
+	if (exponent.includes(op))   return 6;
+	if (multiply.includes(op))   return 5;
+	if (add.includes(op))        return 4;
+	if (compare.includes(op))    return 3;
+	if (bool.includes(op))       return 2;
 	if (assignment.includes(op)) return 1;
-	if (bool.includes(op)) return 2;
-	if (compare.includes(op)) return 3;
-	if (add.includes(op)) return 4;
-	if (multiply.includes(op)) return 5;
-	if (exponent.includes(op)) return 6;
-	if (binary.includes(op)) return 7;
-	if (shift.includes(op)) return 8;
-	if (unary.includes(op)) return 9;
 	throw new Error("[Internal] Operator not found in precendence table");
 }
