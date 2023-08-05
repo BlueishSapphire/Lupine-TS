@@ -23,28 +23,12 @@ const isLineComment = (s: string): boolean => ["#"].includes(s);
 const isPunctuation = (s: string): boolean => [".", ",", ":", ";"].includes(s);
 
 const isNumberStart = (s: string): boolean => /^[0-9]$/.test(s);
-const isDecDigit = (s: string): boolean => /^[0-9]$/.test(s);
-const isHexDigit = (s: string): boolean => /^[0-9A-Fa-f]$/.test(s);
-const isBinDigit = (s: string): boolean => /^[0-1]$/.test(s);
+const isDecDigit = (s: string): boolean => /^[0-9_]$/.test(s);
+const isHexDigit = (s: string): boolean => /^[0-9A-Fa-f_]$/.test(s);
+const isBinDigit = (s: string): boolean => /^[0-1_]$/.test(s);
 
 const isIdentifierStart = (s: string): boolean => /^[A-Za-z_]$/.test(s);
 const isIdentifier = (s: string): boolean => /^[A-Za-z_0-9]$/.test(s);
-
-// // single, eg. %
-// const CHAR_SINGLE_OP = ["=", "!", ">", "<", "+", "-", "*", "/", "%", "&", "|", "^", "~"];
-// const isSingleOp = (s: string): boolean => CHAR_SINGLE_OP.includes(s);
-
-// // double, eg. ==
-// const CHAR_DOUBLE_OP = ["=", "&", "|", "*", "?", "+", "-", "/"];
-// const isDoubleOp = (s: string): boolean => CHAR_DOUBLE_OP.includes(s);
-
-// // single + an equal sign, eg. !=
-// const CHAR_SINGLE_EQ_OP = ["!", ">", "<", "+", "-", "*", "/", "%"];
-// const isSingleEqualsOp = (s: string): boolean => CHAR_SINGLE_EQ_OP.includes(s);
-
-// // double + an equal sign, eg. &&=
-// const CHAR_DOUBLE_EQ_OP = ["&", "|", "*", "?", "/", ">", "<"];
-// const isDoubleEqualsOp = (s: string): boolean => CHAR_DOUBLE_EQ_OP.includes(s);
 
 
 
@@ -196,38 +180,38 @@ class Lexer {
 		if (!isNumberStart(this.current())) {
 			throw new LexerError("[Internal] tokenizeNumber called on a non-number token");
 		}
+		log("Tokenizing number");
 
 		let value = this.current();
 		this.next();
 
-		if (this.canPeek()) {
-			let peek = this.peek();
-
-			if (isDecDigit(peek)) {
-				log(`-> decimal number (integral part)`);
+		const current = this.current();
+		if (isDecDigit(current) || current === ".") {
+			log(`-> decimal number (integral part)`);
+			value += this.eatCharsOfType(isDecDigit);
+			if (this.current() == ".") {
+				log(`-> radix point`);
+				value += ".";
+				this.next();
+				log(`-> decimal number (fractional part)`);
 				value += this.eatCharsOfType(isDecDigit);
-				if (this.current() == ".") {
-					log(`-> radix point`);
-					value += ".";
-					this.next();
-					log(`-> decimal number (fractional part)`);
-					value += this.eatCharsOfType(isDecDigit);
-				}
-			} else if (["x", "b"].includes(peek)) {
-				if (value !== "0") {
-					throw new LexerError(`Numbers in hexadecimal or binary must begin with a '0', but instead found '${value}' at position ${this.position}`);
-				}
+			}
+		} else if (["x", "b"].includes(current)) {
+			if (value !== "0") {
+				throw new LexerError(`Numbers in hexadecimal or binary must begin with a '0', but instead found '${value}' at position ${this.position}`);
+			}
 
-				value += peek;
-				if (peek == "x") {
-					log(`-> hexadecimal`);
-					value += this.eatCharsOfType(isHexDigit);
-				} else if (peek == "b") {
-					log(`-> binary`);
-					value += this.eatCharsOfType(isBinDigit);
-				} else {
-					throw new LexerError(`Unsupported number type: '0${peek}' at position ${this.position + 1}`)
-				}
+			value += current;
+			this.next();
+
+			if (current == "x") {
+				log(`-> hexadecimal`);
+				value += this.eatCharsOfType(isHexDigit);
+			} else if (current == "b") {
+				log(`-> binary`);
+				value += this.eatCharsOfType(isBinDigit);
+			} else {
+				throw new LexerError(`Unsupported number type: '${value}' at position ${this.position + 1}`)
 			}
 		}
 
@@ -257,10 +241,6 @@ class Lexer {
 	}
 
 	private tokenizeString(quote: string): tok.String {
-		if (isQuote(this.current())) {
-			throw new LexerError("[Internal] tokenizeString called on a non-quote token");
-		}
-
 		let value = "";
 
 		while (!this.isEOF() && this.current() !== quote) {
