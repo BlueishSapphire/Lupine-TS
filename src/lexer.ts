@@ -221,8 +221,6 @@ class Lexer {
 			value += current;
 			this.next();
 			value += this.eatCharsOfType(isBinDigit);
-		} else {
-			throw new err.InvalidNumberTypeError(this.pos(), value + current);
 		}
 
 		return new tok.Number(value, this.pos());
