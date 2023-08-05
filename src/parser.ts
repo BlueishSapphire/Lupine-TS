@@ -1,76 +1,67 @@
 import * as ast from "./ast";
 import * as ops from "./ops";
 import * as tok from "./token";
+import * as err from "./errors";
+import { Position } from "./position";
 
 
 
 const log = console.log.bind(null, "[Parser]");
 
-class ParserError extends Error {
-	constructor(public message: string) {
-		super(message);
-		this.name = "ParserError";
-	}
-}
-
 
 
 export class Parser {
-	public position: number;
+	public index: number;
 
 	constructor (public input: tok.Token[]) {
-		this.position = 0;
+		this.index = 0;
 	}
 
 	private isEOF(): boolean {
-		return (this.position >= this.input.length) || (this.input[this.position] instanceof tok.EOF);
+		return (this.index >= this.input.length) || (this.input[this.index] instanceof tok.EOF);
 	}
 
 	private canPeek(): boolean {
-		return (this.position + 1 < this.input.length) || (this.input[this.position + 1] instanceof tok.EOF);
+		return (this.index + 1 < this.input.length) || (this.input[this.index + 1] instanceof tok.EOF);
 	}
 
 	private expectNotEOF(): void {
 		if (this.isEOF()) {
-			throw new ParserError(`Unexpected EOF at position ${this.position}`);
+			throw new err.UnexpectedEOFError(this.pos());
 		}
 	}
 
 	private expectPeek(): void {
 		if (!this.canPeek()) {
-			throw new ParserError(`Unexpected EOF at position ${this.position + 1}`);
+			throw new err.UnexpectedEOFError(this.pos());
 		}
 	}
 
 	private current(): tok.Token {
 		this.expectNotEOF();
-		return this.input[this.position];
+		return this.input[this.index];
 	}
 
 	private peek(): tok.Token {
 		this.expectPeek();
-		return this.input[this.position + 1];
+		return this.input[this.index + 1];
 	}
 
 	private next(): void {
-		this.position++;
+		this.index++;
 	}
 
-	private match(tok: tok.Token, cls: any, value?: string): boolean {
-		return (tok instanceof cls && (value === undefined || tok.value === value));
+	private pos(): Position {
+		return this.current().position;
 	}
-
 	private matchCurrent(cls: any, value?: string): boolean {
-		return this.match(this.current(), cls, value);
-	}
-
-	private matchPeek(cls: any, value?: string): boolean {
-		return this.match(this.peek(), cls, value);
+		const current = this.current();
+		return (current instanceof cls && (value === undefined || current.value === value));
 	}
 
 	private eatSemicolon() {
 		if (!this.matchCurrent(tok.Punctuation, ";")) {
-			throw new ParserError(`Expected semicolon but found ${this.current()}`);
+			throw new err.MissingSemicolonError(this.pos());
 		}
 		this.next();
 	}
@@ -98,14 +89,14 @@ export class Parser {
 		log("block");
 		
 		if (!this.matchCurrent(tok.Grouping, "{"))
-			throw new ParserError("Expected opening brace before code block");
+			throw new err.MissingOpenBraceError(this.pos());
 		this.next();
 		log("-> new block");
 
 		const body = this.parseProgram();
 
 		if (!this.matchCurrent(tok.Grouping, "}"))
-			throw new ParserError("Expected closing brace after code block");
+			throw new err.MissingCloseBraceError(this.pos());
 		this.next();
 
 		return body;
@@ -115,32 +106,32 @@ export class Parser {
 
 	public parseStatement(): ast.Statement {
 		const current = this.current();
-		// if (this.match(current, tok.Keyword, 'if')) {
+		// if (this.matchCurrent(tok.Keyword, 'if')) {
 		// 	return this.parseIfStatement();
 
 		// } else
-		if (this.match(current, tok.Keyword, 'while')) {
+		if (this.matchCurrent(tok.Keyword, 'while')) {
 			return this.parseWhileStatement();
 
-		} else if (this.match(current, tok.Keyword, 'loop')) {
+		} else if (this.matchCurrent(tok.Keyword, 'loop')) {
 			return this.parseLoopStatement();
 
-		} else if (this.match(current, tok.Keyword, 'for')) {
+		} else if (this.matchCurrent(tok.Keyword, 'for')) {
 			return this.parseForStatement();
 
-		} else if (this.match(current, tok.Keyword, 'fn')) {
+		} else if (this.matchCurrent(tok.Keyword, 'fn')) {
 			return this.parseNamedFunctionDeclarationOrAnonFunctionCall();
 
-		} else if (this.match(current, tok.Keyword, 'return')) {
+		} else if (this.matchCurrent(tok.Keyword, 'return')) {
 			return this.parseReturnStatement();
 
-		} else if (this.match(current, tok.Keyword, 'let')) {
+		} else if (this.matchCurrent(tok.Keyword, 'let')) {
 			return this.parseLetDeclaration();
 
-		} else if (this.match(current, tok.Keyword, 'const')) {
+		} else if (this.matchCurrent(tok.Keyword, 'const')) {
 			return this.parseConstDeclaration();
 
-		} else if (this.match(current, tok.Identifier)) {
+		} else if (this.matchCurrent(tok.Identifier)) {
 			return this.parseAssignmentOrFunctionCall();
 
 		} else {
@@ -152,7 +143,7 @@ export class Parser {
 
 	parseReturnStatement(): ast.Return {
 		if (!this.matchCurrent(tok.Keyword, "return"))
-			throw new ParserError("[Intenal] parseReturnStatement called on a non-return token");
+			throw new err.InternalParserError(this.pos(), "parseReturnStatement called on a non-return token");
 		this.next();
 
 		const value = this.parseExpression();
@@ -164,7 +155,7 @@ export class Parser {
 
 	parseNamedFunctionDeclarationOrAnonFunctionCall(): ast.NamedFuncDecl | ast.AnonFuncCall {
 		if (!this.matchCurrent(tok.Keyword, "fn"))
-			throw new ParserError("[Intenal] parseForStatement called on a non-for token");
+			throw new err.InternalParserError(this.pos(), "parseForStatement called on a non-for token");
 		this.next();
 
 		if (this.matchCurrent(tok.Identifier)) {
@@ -191,19 +182,19 @@ export class Parser {
 
 	parseForStatement(): ast.For {
 		if (!this.matchCurrent(tok.Keyword, "for"))
-			throw new ParserError("[Intenal] parseForStatement called on a non-for token");
+			throw new err.InternalParserError(this.pos(), "parseForStatement called on a non-for token");
 		this.next();
 
 		log("for");
 
 		if (!this.matchCurrent(tok.Identifier))
-			throw new ParserError("Expected a variable after the keyword for");
+			throw new err.ExpectedVariableAfterForError(this.pos());
 		log("-> variable");
 		const variable = new ast.Variable(this.current().value);
 		this.next();
 
 		if (!this.matchCurrent(tok.Operator, "->"))
-			throw new ParserError("Expected -> operator after variable in for loop");
+			throw new err.ExpectedOperatorAfterForError(this.pos());
 		log("-> arrow");
 		this.next();
 
@@ -217,7 +208,7 @@ export class Parser {
 
 	parseWhileStatement(): ast.While {
 		if (!this.matchCurrent(tok.Keyword, "while"))
-			throw new ParserError("[Intenal] parseWhileStatement called on a non-while token");
+			throw new err.InternalParserError(this.pos(), "parseWhileStatement called on a non-while token");
 		this.next();
 
 		log("while");
@@ -231,7 +222,7 @@ export class Parser {
 
 	parseLoopStatement(): ast.Loop {
 		if (!this.matchCurrent(tok.Keyword, "loop"))
-			throw new ParserError("[Intenal] parseLoopStatement called on a non-loop token");
+			throw new err.InternalParserError(this.pos(), "parseLoopStatement called on a non-loop token");
 		this.next();
 
 		log("loop");
@@ -245,16 +236,16 @@ export class Parser {
 		log("const");
 
 		if (!this.matchCurrent(tok.Keyword, "const"))
-			throw new ParserError("[Intenal] parseConstDeclaration called on a non-const token");
+			throw new err.InternalParserError(this.pos(), "parseConstDeclaration called on a non-const token");
 		this.next();
 
 		if (!this.matchCurrent(tok.Identifier))
-			throw new ParserError("Expected a variable after const");
+			throw new err.ExpectedVariableAfterConstError(this.pos());
 		const variable = new ast.Variable(this.current().value);
 		this.next();
 
 		if (!this.matchCurrent(tok.Operator, "="))
-			throw new ParserError("Expected an equals sign after variable");
+			throw new err.ExpectedEqualsAfterConstError(this.pos());
 		this.next();
 
 		const expression = this.parseExpression();
@@ -268,11 +259,11 @@ export class Parser {
 		log("let");
 		
 		if (!this.matchCurrent(tok.Keyword, "let"))
-			throw new ParserError("[Intenal] parseLetDeclaration called on a non-let token");
+			throw new err.InternalParserError(this.pos(), "parseLetDeclaration called on a non-let token");
 		this.next();
 
 		if (!this.matchCurrent(tok.Identifier))
-			throw new ParserError("Expected a variable after let");
+			throw new err.ExpectedVariableAfterLetError(this.pos());
 		log("-> variable");
 		const variable = new ast.Variable(this.current().value);
 		this.next();
@@ -292,7 +283,7 @@ export class Parser {
 	
 			return new ast.LetVariable(variable);
 		} else {
-			throw new ParserError("Expected either an equals sign or a semicolon after variable");
+			throw new err.MissingSemicolonError(this.pos());
 		}
 	}
 
@@ -307,27 +298,23 @@ export class Parser {
 
 	parseAssignmentOrFunctionCall(): ast.Assignment | ast.NamedFuncCall {
 		const token = this.current();
-		if (!this.isEOF() && this.match(this.peek(), tok.Grouping, "(")) {
-			log("function call");
-			log("-> name");
-			let name = token.value;
-			let func = new ast.Variable(name);
-			this.next();
+		this.next();
 
+		const name = token.value;
+		const variable = new ast.Variable(name);
+
+		if (!this.isEOF() && this.matchCurrent(tok.Grouping, "(")) {
+			log("function call");
 			log("-> args");
 			let args = this.parseArgumentList();
 
 			this.eatSemicolon();
 
-			return new ast.NamedFuncCall(func, args);
+			return new ast.NamedFuncCall(variable, args);
 		} else {
 			log("assignment");
-			const name = token.value;
-			const variable = new ast.Variable(name);
-			this.next();
-
-			const op = this.current().value;
 			log("-> operator");
+			const op = this.current().value;
 			this.next();
 
 			const value = this.parseExpression();
@@ -342,13 +329,13 @@ export class Parser {
 
 	parseExpression(minPrecedence = 0): ast.Expression {
 		log("expression");
-		if (this.match(this.current(), tok.Grouping, "(")) {
+		if (this.matchCurrent(tok.Grouping, "(")) {
 			log("-> open parenthesis");
 			this.next();
 			const groupedExpression = this.parseExpression();
 
-			if (!this.match(this.current(), tok.Grouping, ")")) {
-				throw new ParserError("Expected closing parenthesis");
+			if (!this.matchCurrent(tok.Grouping, ")")) {
+				throw new err.MissingCloseParenthesisError(this.pos());
 			}
 			this.next();
 
@@ -407,12 +394,12 @@ export class Parser {
 			this.next();
 			
 			if (!this.matchCurrent(tok.String))
-				throw new ParserError("[Internal] Expected string after quote");
+				throw new err.InternalParserError(this.pos(), "Expected string after quote");
 			const value = this.current().value;
 			this.next();
 
 			if (!this.matchCurrent(tok.Quote))
-				throw new ParserError("[Internal] Expected quote after string");
+				throw new err.InternalParserError(this.pos(), "Expected quote after string");
 			this.next();
 
 			return new ast.String(value);
@@ -428,23 +415,19 @@ export class Parser {
 			this.next();
 			return new ast.Null();
 		} else if (this.matchCurrent(tok.Identifier)) {
-			if (!this.isEOF() && this.match(this.peek(), tok.Grouping, "(")) {
+			const name = token.value;
+			const variable = new ast.Variable(name);
+			this.next();
+
+			if (!this.isEOF() && this.matchCurrent(tok.Grouping, "(")) {
 				log("-> function call");
-				log("-> parsing name");
-				let name = token.value;
-				let func = new ast.Variable(name);
-				this.next();
 
 				log("-> parsing args");
 				let args = this.parseArgumentList();
 
-				return new ast.NamedFuncCall(func, args);
+				return new ast.NamedFuncCall(variable, args);
 			} else {
-				log("-> variable");
-				const value = token.value;
-
-				this.next();
-				return new ast.Variable(value);
+				return variable;
 			}
 		} else if (this.matchCurrent(tok.Grouping, "[")) {
 			log("-> array literal");
@@ -462,7 +445,7 @@ export class Parser {
 			}
 
 			if (!this.matchCurrent(tok.Grouping, "]")) 
-				throw new ParserError(`Expected closing brackets on array literal, found ${this.current()}`);
+				throw new err.UnterminatedArrayLiteralError(this.pos());
 			this.next();
 
 			return new ast.Array(values);
@@ -484,7 +467,7 @@ export class Parser {
 			
 			return func;
 		} else {
-			throw new ParserError(`Unexpected token ${this.current()}`);
+			throw new err.UnexpectedTokenError(this.pos(), "value", this.current().name);
 		}
 	}
 
@@ -500,30 +483,30 @@ export class Parser {
 		const arr: ast.Parameter[] = [];
 		let first = true;
 		
-		if (!this.match(this.current(), tok.Grouping, "(")) {
-			throw new ParserError("[Internal] parseParameterList() called without opening parenthesis");
+		if (!this.matchCurrent(tok.Grouping, "(")) {
+			throw new err.InternalParserError(this.pos(), "parseParameterList() called without opening parenthesis");
 		}
 		this.next();
 
 		while (!this.isEOF()) {
-			if (this.match(this.current(), tok.Grouping, ")")) break;
+			if (this.matchCurrent(tok.Grouping, ")")) break;
 			if (first) {
 				log("-> first param");
 				first = false;
 			} else {
-				if (!this.match(this.current(), tok.Punctuation, ",")) {
-					throw new ParserError("Missing comma in parameter list");
+				if (!this.matchCurrent(tok.Punctuation, ",")) {
+					throw new err.MissingCommaInArgumentListError(this.pos());
 				}
 				log("-> comma");
 				this.next();
 			}
 			// last comma can be missing
-			if (this.match(this.current(), tok.Grouping, ")")) break;
+			if (this.matchCurrent(tok.Grouping, ")")) break;
 			arr.push(this.parseParameter());
 		}
 
-		if (!this.match(this.current(), tok.Grouping, ")")) {
-			throw new ParserError("Missing end parenthesis for parameter list");
+		if (!this.matchCurrent(tok.Grouping, ")")) {
+			throw new err.MissingCloseParenthesisAfterArgumentError(this.pos());
 		}
 
 		this.next();
@@ -532,7 +515,7 @@ export class Parser {
 
 	parseParameter(): ast.Parameter {
 		if (!this.matchCurrent(tok.Identifier))
-			throw new ParserError("Expected a parameter");
+			throw new err.ExpectedArgumentError(this.pos());
 		log("parameter");
 		const variable = new ast.Variable(this.current().value);
 		this.next();
@@ -554,30 +537,30 @@ export class Parser {
 		const arr = [];
 		let first = true;
 		
-		if (!this.match(this.current(), tok.Grouping, "(")) {
-			throw new ParserError("[Internal] parseArgumentList() called without opening parenthesis");
+		if (!this.matchCurrent(tok.Grouping, "(")) {
+			throw new err.InternalParserError(this.pos(), "parseArgumentList() called without opening parenthesis");
 		}
 		this.next();
 
 		while (!this.isEOF()) {
-			if (this.match(this.current(), tok.Grouping, ")")) break;
+			if (this.matchCurrent(tok.Grouping, ")")) break;
 			if (first) {
 				log("-> first arg");
 				first = false;
 			} else {
-				if (!this.match(this.current(), tok.Punctuation, ",")) {
-					throw new ParserError("Missing comma in argument list");
+				if (!this.matchCurrent(tok.Punctuation, ",")) {
+					throw new err.MissingCommaInArgumentListError(this.pos());
 				}
 				log("-> comma");
 				this.next();
 			}
 			// last comma can be missing
-			if (this.match(this.current(), tok.Grouping, ")")) break;
+			if (this.matchCurrent(tok.Grouping, ")")) break;
 			arr.push(this.parseExpression());
 		}
 
-		if (!this.match(this.current(), tok.Grouping, ")")) {
-			throw new ParserError("Missing end parenthesis for argument list");
+		if (!this.matchCurrent(tok.Grouping, ")")) {
+			throw new err.MissingCloseParenthesisAfterArgumentError(this.pos());
 		}
 
 		this.next();

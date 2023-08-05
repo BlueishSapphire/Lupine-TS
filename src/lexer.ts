@@ -1,16 +1,11 @@
+import * as err from "./errors";
 import * as ops from "./ops";
+import { Position } from "./position";
 import * as tok from "./token";
 
 
 
 const log = console.log.bind(null, "[Lexer]");
-
-class LexerError extends Error {
-	constructor(public message: string) {
-		super(message);
-		this.name = "LexerError";
-	}
-}
 
 
 
@@ -51,44 +46,53 @@ const isNull = (s: string): boolean => ["null"].includes(s);
 
 
 class Lexer {
-	public position: number;
+	private index: number;
+	private line: number;
+	private column: number;
 
 	constructor(public input: string) {
-		this.position = 0;
+		this.index = 0;
+		this.line = 1;
+		this.column = 0;
 	}
 
 	private isEOF(): boolean {
-		return this.position >= this.input.length;
+		return this.index >= this.input.length;
 	}
 
 	private canPeek(): boolean {
-		return this.position + 1 < this.input.length;
+		return this.index + 1 < this.input.length;
 	}
 
 	private expectNotEOF(): void {
 		if (this.isEOF()) {
-			throw new LexerError(`Unexpected EOF at position ${this.position}`);
+			throw new err.UnexpectedEOFError(this.pos());
 		}
 	}
 
 	private expectPeek(): void {
 		if (!this.canPeek()) {
-			throw new LexerError(`Unexpected EOF at position ${this.position + 1}`);
+			throw new err.UnexpectedEOFError(this.pos());
 		}
 	}
 
 	private current(): string {
 		this.expectNotEOF();
-		return this.input[this.position];
+		return this.input[this.index];
 	}
 
 	private peek(): string {
 		this.expectPeek();
-		return this.input[this.position + 1];
+		return this.input[this.index + 1];
 	}
 
 	private next(): void {
-		this.position++;
+		this.index++;
+		this.column++;
+	}
+
+	private pos(): Position {
+		return new Position(this.line, this.column);
 	}
 
 	private skipLine(): void {
@@ -102,6 +106,10 @@ class Lexer {
 
 		while (!this.isEOF()) {
 			let current = this.current();
+			if (isNewline(current)) {
+				this.line++;
+				this.column = 0;
+			}
 
 			if (isWhiteSpace(current)) {
 				// log(`Found whitespace`);
@@ -113,11 +121,11 @@ class Lexer {
 				this.next();
 			} else if (isGrouping(current)) {
 				log(`Found grouping`);
-				tokens.push(new tok.Grouping(current));
+				tokens.push(new tok.Grouping(current, this.pos()));
 				this.next();
 			} else if (isPunctuation(current)) {
 				log(`Found punctuation`);
-				tokens.push(new tok.Punctuation(current));
+				tokens.push(new tok.Punctuation(current, this.pos()));
 				this.next();
 			} else if (isNumberStart(current)) {
 				log(`Found number`);
@@ -129,18 +137,21 @@ class Lexer {
 				log(`Found quote`);
 				let quote = current;
 
-				tokens.push(new tok.Quote(current));
+				tokens.push(new tok.Quote(current, this.pos()));
 				this.next();
 
 				log(`Found string`);
 				tokens.push(this.tokenizeString(quote));
 
+				if (this.isEOF()) {
+					throw new err.UnterminatedStringError(this.pos());
+				}
 				log(`Found quote`);
-				tokens.push(new tok.Quote(current));
+				tokens.push(new tok.Quote(current, this.pos()));
 				this.next();
 			} else {
 				if (!ops.isOperator(current)) {
-					throw new LexerError(`Unrecognized token '${current}'`);
+					throw new err.InvalidCharacterError(this.pos(), this.current());
 				}
 
 				log(`Found operator (${current})`);
@@ -156,12 +167,12 @@ class Lexer {
 					current = this.current();
 				}
 
-				tokens.push(new tok.Operator(value));
+				tokens.push(new tok.Operator(value, this.pos()));
 			}
 		}
 
 		log(`Found EOF`);
-		tokens.push(new tok.EOF());
+		tokens.push(new tok.EOF(this.pos()));
 
 		return tokens;
 	}
@@ -177,7 +188,7 @@ class Lexer {
 
 	private tokenizeNumber(): tok.Number {
 		if (!isNumberStart(this.current())) {
-			throw new LexerError("[Internal] tokenizeNumber called on a non-number token");
+			throw new err.InternalLexerError(this.pos(), "tokenizeNumber called on a non-number token");
 		}
 		log("Tokenizing number");
 
@@ -198,47 +209,44 @@ class Lexer {
 					value += this.eatCharsOfType(isDecDigit);
 				}
 			}
-		} else if (["x", "b"].includes(current)) {
-			if (value !== "0") {
-				throw new LexerError(`Numbers in hexadecimal or binary must begin with a '0', but instead found '${value}' at position ${this.position}`);
-			}
-
+		} else if (value !== "0") {
+			throw new err.InvalidNumberTypeError(this.pos(), value + current);
+		} else if (current === "x") {
+			log(`-> hexadecimal`);
 			value += current;
 			this.next();
-
-			if (current == "x") {
-				log(`-> hexadecimal`);
-				value += this.eatCharsOfType(isHexDigit);
-			} else if (current == "b") {
-				log(`-> binary`);
-				value += this.eatCharsOfType(isBinDigit);
-			} else {
-				throw new LexerError(`Unsupported number type: '${value}' at position ${this.position + 1}`)
-			}
+			value += this.eatCharsOfType(isHexDigit);
+		} else if (current === "b") {
+			log(`-> binary`);
+			value += current;
+			this.next();
+			value += this.eatCharsOfType(isBinDigit);
+		} else {
+			throw new err.InvalidNumberTypeError(this.pos(), value + current);
 		}
 
-		return new tok.Number(value);
+		return new tok.Number(value, this.pos());
 	}
 
 	private tokenizeIdentifier(): tok.Identifier {
 		if (!isIdentifierStart(this.current())) {
-			throw new LexerError("[Internal] tokenizeIdentifier called on a non-identifier token");
+			throw new err.InternalLexerError(this.pos(), "tokenizeIdentifier called on a non-identifier token");
 		}
 
 		let value = this.eatCharsOfType(isIdentifier);
 
 		if (isKeyword(value)) {
 			log(`-> keyword`);
-			return new tok.Keyword(value);
+			return new tok.Keyword(value, this.pos());
 		} else if (isBoolean(value)) {
 			log(`-> boolean`);
-			return new tok.Boolean(value);
+			return new tok.Boolean(value, this.pos());
 		} else if (isNull(value)) {
 			log(`-> null`);
-			return new tok.Null(value);
+			return new tok.Null(value, this.pos());
 		} else {
 			log(`-> identifier`);
-			return new tok.Identifier(value);
+			return new tok.Identifier(value, this.pos());
 		}
 	}
 
@@ -255,7 +263,7 @@ class Lexer {
 			this.next();
 		}
 
-		return new tok.String(value);
+		return new tok.String(value, this.pos());
 	}
 }
 
