@@ -1,0 +1,10 @@
+let a = 0;
+let b = 1;
+
+for i -> 1..10 {
+	let temp = b;
+	b = a + b;
+	a = temp;
+	println(b);
+}
+
