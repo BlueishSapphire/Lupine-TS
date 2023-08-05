@@ -209,14 +209,14 @@ class Lexer {
 					value += this.eatCharsOfType(isDecDigit);
 				}
 			}
-		} else if (value !== "0") {
-			throw new err.InvalidNumberTypeError(this.pos(), value + current);
 		} else if (current === "x") {
+			if (value !== "0") throw new err.InvalidNumberTypeError(this.pos(), value + current);
 			log(`-> hexadecimal`);
 			value += current;
 			this.next();
 			value += this.eatCharsOfType(isHexDigit);
 		} else if (current === "b") {
+			if (value !== "0") throw new err.InvalidNumberTypeError(this.pos(), value + current);
 			log(`-> binary`);
 			value += current;
 			this.next();
