@@ -20,7 +20,7 @@ const isWhiteSpace = (s: string) => /^\s$/.test(s);
 const isGrouping = (s: string): boolean => ["(", ")", "[", "]", "{", "}"].includes(s);
 const isQuote = (s: string): boolean => ["'", '"'].includes(s);
 const isLineComment = (s: string): boolean => ["#"].includes(s);
-const isPunctuation = (s: string): boolean => [".", ",", ":", ";"].includes(s);
+const isPunctuation = (s: string): boolean => [",", ":", ";"].includes(s);
 
 const isNumberStart = (s: string): boolean => /^[0-9]$/.test(s);
 const isDecDigit = (s: string): boolean => /^[0-9_]$/.test(s);
@@ -37,13 +37,12 @@ const KEYWORDS = [
 	"let",
 	"if",
 	"else",
-	"elif",
 	"for",
 	"while",
 	"loop",
 	"fn",
 	"class",
-	"in",
+	"return",
 ];
 const isKeyword = (s: string): boolean => KEYWORDS.includes(s);
 const isBoolean = (s: string): boolean => ["true", "false"].includes(s);
@@ -190,11 +189,14 @@ class Lexer {
 			log(`-> decimal number (integral part)`);
 			value += this.eatCharsOfType(isDecDigit);
 			if (this.current() == ".") {
-				log(`-> radix point`);
-				value += ".";
-				this.next();
-				log(`-> decimal number (fractional part)`);
-				value += this.eatCharsOfType(isDecDigit);
+				// if a number is simply followed by a period, it could be the between operator (,,)
+				if (isDecDigit(this.peek())) {
+					log(`-> radix point`);
+					value += ".";
+					this.next();
+					log(`-> decimal number (fractional part)`);
+					value += this.eatCharsOfType(isDecDigit);
+				}
 			}
 		} else if (["x", "b"].includes(current)) {
 			if (value !== "0") {
