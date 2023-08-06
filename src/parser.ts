@@ -11,7 +11,7 @@ const log = isDev ? console.log.bind(null, "[Parser]") : () => {};
 
 
 
-export class Parser {
+class Parser {
 	public index: number;
 
 	constructor (public input: tok.Token[]) {
@@ -569,3 +569,9 @@ export class Parser {
 	}
 }
 
+
+
+export function parse(tokens: tok.Token[]): ast.Program {
+	const parser = new Parser(tokens);
+	return parser.parse();
+}
