@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "test": "echo \"Error: no test specified\" && exit 1"
+	"clean": "rm -r build/*",
+    "test": "ava"
   },
   "keywords": [],
   "author": "BlueishSapphire",
@@ -15,6 +16,8 @@
     "fs": "^0.0.1-security"
   },
   "devDependencies": {
-    "@types/node": "^20.4.5"
+    "@ava/typescript": "^4.1.0",
+    "@types/node": "^20.4.5",
+    "ava": "^5.3.1"
   }
 }

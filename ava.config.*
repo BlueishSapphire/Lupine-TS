@@ -1,0 +1,10 @@
+{
+	"ava": {
+		"typescript": {
+			"rewritePaths": {
+				"src/": "build/"
+			},
+			"compile": true
+		}
+	}
+}
