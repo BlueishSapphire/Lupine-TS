@@ -166,6 +166,7 @@ class Lexer {
 					value += current;
 					log(`-> longer operator (${value})`);
 					this.next();
+					if (this.isEOF()) break;
 					current = this.current();
 				}
 
