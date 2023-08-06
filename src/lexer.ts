@@ -5,7 +5,8 @@ import * as tok from "./token";
 
 
 
-const log = console.log.bind(null, "[Lexer]");
+const isDev: boolean = process.env.NODE_ENV === 'development';
+const log = isDev ? console.log.bind(null, "[Lexer]") : () => {};
 
 
 
@@ -156,6 +157,7 @@ class Lexer {
 
 				log(`Found operator (${current})`);
 
+				const start = this.pos();
 				let value = current;
 				this.next();
 
@@ -167,7 +169,7 @@ class Lexer {
 					current = this.current();
 				}
 
-				tokens.push(new tok.Operator(value, this.pos()));
+				tokens.push(new tok.Operator(value, start));
 			}
 		}
 
@@ -192,13 +194,19 @@ class Lexer {
 		}
 		log("Tokenizing number");
 
+		const start = this.pos();
 		let value = this.current();
 		this.next();
+
+		if (this.isEOF()) return new tok.Number(value, start);
 
 		const current = this.current();
 		if (isDecDigit(current) || current === ".") {
 			log(`-> decimal number (integral part)`);
 			value += this.eatCharsOfType(isDecDigit);
+
+			if (this.isEOF()) return new tok.Number(value, start);
+
 			if (this.current() == ".") {
 				// if a number is simply followed by a period, it could be the between operator (,,)
 				if (isDecDigit(this.peek())) {
@@ -223,7 +231,7 @@ class Lexer {
 			value += this.eatCharsOfType(isBinDigit);
 		}
 
-		return new tok.Number(value, this.pos());
+		return new tok.Number(value, start);
 	}
 
 	private tokenizeIdentifier(): tok.Identifier {
@@ -231,24 +239,26 @@ class Lexer {
 			throw new err.InternalLexerError(this.pos(), "tokenizeIdentifier called on a non-identifier token");
 		}
 
+		const start = this.pos();
 		let value = this.eatCharsOfType(isIdentifier);
 
 		if (isKeyword(value)) {
 			log(`-> keyword`);
-			return new tok.Keyword(value, this.pos());
+			return new tok.Keyword(value, start);
 		} else if (isBoolean(value)) {
 			log(`-> boolean`);
-			return new tok.Boolean(value, this.pos());
+			return new tok.Boolean(value, start);
 		} else if (isNull(value)) {
 			log(`-> null`);
-			return new tok.Null(value, this.pos());
+			return new tok.Null(value, start);
 		} else {
 			log(`-> identifier`);
-			return new tok.Identifier(value, this.pos());
+			return new tok.Identifier(value, start);
 		}
 	}
 
 	private tokenizeString(quote: string): tok.String {
+		const start = this.pos();
 		let value = "";
 
 		while (!this.isEOF() && this.current() !== quote) {
@@ -261,7 +271,7 @@ class Lexer {
 			this.next();
 		}
 
-		return new tok.String(value, this.pos());
+		return new tok.String(value, start);
 	}
 }
 

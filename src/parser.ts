@@ -6,7 +6,8 @@ import { Position } from "./position";
 
 
 
-const log = console.log.bind(null, "[Parser]");
+const isDev: boolean = process.env.NODE_ENV === 'development';
+const log = isDev ? console.log.bind(null, "[Parser]") : () => {};
 
 
 
