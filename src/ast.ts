@@ -289,8 +289,8 @@ export class If extends Node {
 		public position: Position,
 		public condition: Expression | Value,
 		public body: Program,
-		public elseifs: ElseIf[],
-		public _else: Else,
+		public elseifs: ElseIf[] = [],
+		public _else: Else | undefined = undefined,
 	) { super(position); }
 
 	toString(): string {

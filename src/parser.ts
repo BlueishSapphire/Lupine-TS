@@ -69,7 +69,6 @@ class Parser {
 
 	public parse(): ast.Program {
 		log(`Parsing ${this.input.length} tokens`);
-		// return this.parseProgram();
 		const ast = this.parseProgram();
 		log(`Output:\n-> ${ast}`);
 		return ast;
@@ -107,11 +106,10 @@ class Parser {
 
 	public parseStatement(): ast.Statement {
 		const current = this.current();
-		// if (this.matchCurrent(tok.Keyword, 'if')) {
-		// 	return this.parseIfStatement();
+		if (this.matchCurrent(tok.Keyword, 'if')) {
+			return this.parseIfStatement();
 
-		// } else
-		if (this.matchCurrent(tok.Keyword, 'while')) {
+		} else if (this.matchCurrent(tok.Keyword, 'while')) {
 			return this.parseWhileStatement();
 
 		} else if (this.matchCurrent(tok.Keyword, 'loop')) {
@@ -140,6 +138,38 @@ class Parser {
 			// For simplicity, let's assume this is a single expression statement
 			return this.parseExpressionStatement();
 		}
+	}
+
+	parseIfStatement(): ast.Statement {
+		if (!this.matchCurrent(tok.Keyword, "if"))
+			throw new err.InternalParserError(this.pos(), "parseIfStatement called on a non-if token");
+		this.next();
+
+		log("if");
+
+		const condition = this.parseExpression();
+
+		const body = this.parseBlock();
+		
+		const elseifs = [];
+		let _else;
+
+		while (this.matchCurrent(tok.Keyword, "else")) {
+			this.next();
+			if (this.matchCurrent(tok.Keyword, "if")) {
+				const condition = this.parseExpression();
+
+				const body = this.parseBlock();
+
+				elseifs.push(new ast.ElseIf(this.pos(), condition, body));
+			} else {
+				const body = this.parseBlock();
+
+				_else = new ast.Else(this.pos(), body);
+			}
+		}
+
+		return new ast.If(this.pos(), condition, body, elseifs, _else);
 	}
 
 	parseReturnStatement(): ast.Return {
