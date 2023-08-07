@@ -31,14 +31,21 @@ const isIdentifier = (s: string): boolean => /^[A-Za-z_0-9]$/.test(s);
 const KEYWORDS = [
 	"const",
 	"let",
+
 	"if",
 	"else",
+
 	"for",
 	"while",
 	"loop",
+	"break",
+	"continue",
+
 	"fn",
-	"class",
 	"return",
+
+	"import",
+	// "class",
 ];
 const isKeyword = (s: string): boolean => KEYWORDS.includes(s);
 const isBoolean = (s: string): boolean => ["true", "false"].includes(s);

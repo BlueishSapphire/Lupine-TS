@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import { tokenize } from "./lexer";
 import { parse } from "./parser";
+import { TypeChecker } from "./type_checker";
 
 
 
@@ -13,3 +14,5 @@ if (targetFileName === undefined || targetFileName.length === 0) {
 const contents = fs.readFileSync(targetFileName).toString();
 const tokens = tokenize(contents);
 const program = parse(tokens);
+const typeChecker = new TypeChecker(program);
+typeChecker.initialPass();

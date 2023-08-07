@@ -55,7 +55,7 @@ export namespace chars {
 	export const COMP_LE = "<=";
 }
 
-const assignment = [
+export const ASSIGNMENT = [
 	chars.ASSIGN,
 	chars.ASSIGN_ADD,
 	chars.ASSIGN_SUB,
@@ -75,13 +75,13 @@ const assignment = [
 	chars.ASSIGN_BOOL_XOR,
 	chars.ASSIGN_NULLISH,
 ];
-const bool = [
+export const BOOL = [
 	chars.BOOL_AND,
 	chars.BOOL_NOT,
 	chars.BOOL_OR,
 	chars.BOOL_XOR,
 ];
-const compare = [
+export const COMPARE = [
 	chars.COMP_EQ,
 	chars.COMP_NE,
 	chars.COMP_GT,
@@ -89,33 +89,33 @@ const compare = [
 	chars.COMP_LT,
 	chars.COMP_LE,
 ];
-const add = [ chars.ADD, chars.SUB ];
-const multiply = [ chars.MULT, chars.DIV, chars.MOD, chars.INTDIV ];
-const exponent = [ chars.POW ];
-const binary = [ chars.BIT_AND, chars.BIT_OR, chars.BIT_XOR ];
-const shift = [ chars.BIT_LSHIFT, chars.BIT_RSHIFT ];
-const between = [ chars.BETWEEN ];
-const unary = [ chars.BOOL_NOT, chars.BIT_INV, chars.SPREAD ];
-const member = [ chars.MEMBER, chars.MEMBER_NULLISH ];
+export const ADD = [ chars.ADD, chars.SUB ];
+export const MULTIPLY = [ chars.MULT, chars.DIV, chars.MOD, chars.INTDIV ];
+export const EXPONENT = [ chars.POW ];
+export const BINARY = [ chars.BIT_AND, chars.BIT_OR, chars.BIT_XOR ];
+export const SHIFT = [ chars.BIT_LSHIFT, chars.BIT_RSHIFT ];
+export const BETWEEN = [ chars.BETWEEN ];
+export const UNARY = [ chars.BOOL_NOT, chars.BIT_INV, chars.SPREAD ];
+export const MEMBER = [ chars.MEMBER, chars.MEMBER_NULLISH ];
 
 
 
-export const ALL = [chars.FOR, ...member, ...between, ...assignment, ...bool, ...compare, ...add, ...multiply, ...exponent, ...binary, ...shift, ...unary];
+export const ALL = [chars.FOR, ...MEMBER, ...BETWEEN, ...ASSIGNMENT, ...BOOL, ...COMPARE, ...ADD, ...MULTIPLY, ...EXPONENT, ...BINARY, ...SHIFT, ...UNARY];
 export const isOperator = (s: string): boolean => ALL.includes(s);
 
 
 
 export function getPrecedence(op: string): number {
-	if (member.includes(op))     return 11;
-	if (unary.includes(op))      return 10;
-	if (between.includes(op))    return 9;
-	if (shift.includes(op))      return 8;
-	if (binary.includes(op))     return 7;
-	if (exponent.includes(op))   return 6;
-	if (multiply.includes(op))   return 5;
-	if (add.includes(op))        return 4;
-	if (compare.includes(op))    return 3;
-	if (bool.includes(op))       return 2;
-	if (assignment.includes(op)) return 1;
+	if (MEMBER.includes(op))     return 11;
+	if (UNARY.includes(op))      return 10;
+	if (BETWEEN.includes(op))    return 9;
+	if (SHIFT.includes(op))      return 8;
+	if (BINARY.includes(op))     return 7;
+	if (EXPONENT.includes(op))   return 6;
+	if (MULTIPLY.includes(op))   return 5;
+	if (ADD.includes(op))        return 4;
+	if (COMPARE.includes(op))    return 3;
+	if (BOOL.includes(op))       return 2;
+	if (ASSIGNMENT.includes(op)) return 1;
 	throw new Error("[Internal] Operator not found in precendence table");
 }

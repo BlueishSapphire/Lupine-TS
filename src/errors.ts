@@ -205,3 +205,70 @@ export class ExpectedArgumentError extends ParserError {
 }
 
 
+
+// ===== TYPE CHECKER SPECIFIC ERRORS =====
+
+export class TypeCheckerError extends CompilerError {
+	name = "TypeCheckerError";
+}
+
+export class InternalTypeCheckerError extends TypeCheckerError {
+	name = "InternalTypeCheckerError";
+
+	constructor(pos: Position, message: string) {
+		super(pos, "[Internal] " + message);
+	}
+}
+
+export class MismatchedTypesError extends TypeCheckerError {
+	name = "MismatchedTypesError";
+
+	constructor(pos: Position, leftType: string, rightType: string) {
+		super(pos, `Mismatched types ${leftType} and ${rightType}`);
+	}
+}
+
+export class AssignmentToUninitializedVariable extends TypeCheckerError {
+	name = "AssignmentToUninitializedVariable";
+
+	constructor(pos: Position, varName: string) {
+		super(pos, `Assignment to uninitialized variable ${varName}`);
+	}
+}
+
+export class ReferenceToUninitializedVariable extends TypeCheckerError {
+	name = "ReferenceToUninitializedVariable";
+
+	constructor(pos: Position, varName: string) {
+		super(pos, `Reference to uninitialized variable ${varName}`);
+	}
+}
+
+export class AssignmentToConstantVariable extends TypeCheckerError {
+	name = "AssignmentToConstantVariable";
+
+	constructor(pos: Position, varName: string) {
+		super(pos, `Assignment to constant variable ${varName}`);
+	}
+}
+
+export class FunctionIsNotDefinedError extends TypeCheckerError {
+	name = "FunctionIsNotDefinedError";
+
+	constructor(pos: Position, funcName: string) {
+		super(pos, `Function ${funcName} is not defined`);
+	}
+}
+
+export class VariableIsNotCallableError extends TypeCheckerError {
+	name = "VariableIsNotCallableError";
+
+	constructor(pos: Position, funcName: string) {
+		super(pos, `Variable ${funcName} is not callable`);
+	}
+}
+
+
+
+
+
