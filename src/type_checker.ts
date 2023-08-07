@@ -17,6 +17,8 @@ enum Type {
 	Bool = "Bool",
 	Fn = "Fn",
 	Void = "Void",
+	Object = "Object",
+	Class = "Class",
 }
 
 enum State {
@@ -106,14 +108,34 @@ function getType(scope: Scope, node: ast.Node): Type {
 	} else if (node instanceof ast.BinaryOp) {
 		log("-> binary operator");
 
-		const isComparison = ops.COMPARE.includes(node.op);
 		const leftType = getType(scope, node.left);
+
+		const isComparisonOp = ops.COMPARE.includes(node.op);
+		if (isComparisonOp) {
+			const rightType = getType(scope, node.right);
+
+			if (leftType !== rightType)
+				throw new err.MismatchedTypesError(node.position, leftType, rightType);
+			
+			return Type.Bool;
+		}
+
+		const isMemberOp = ops.MEMBER.includes(node.op);
+		if (isMemberOp) {
+			if (leftType !== Type.Object && leftType !== Type.Class)
+				throw new err.ValueDoesNotHaveMembersError(node.position, leftType);
+			
+			// get type of member/function call... too much work
+			// TODO
+			return Type.Void;
+		}
+
 		const rightType = getType(scope, node.right);
-		
+
 		if (leftType !== rightType)
 			throw new err.MismatchedTypesError(node.position, leftType, rightType);
-		
-		return isComparison ? Type.Bool : leftType;
+			
+		return leftType;
 	} else if (node instanceof ast.Variable) {
 		const v = getVar(scope, node.name);
 
@@ -223,6 +245,8 @@ export class TypeChecker {
 
 				if (v.type !== Type.Fn)
 					throw new err.VariableIsNotCallableError(child.position, child.func.name);
+			} else if (child instanceof ast.Import) {
+				this.scope.var(child.target.name, State.InitConst, Type.Object);
 			}
 		});
 
