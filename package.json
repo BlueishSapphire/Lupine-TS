@@ -2,8 +2,9 @@
   "name": "lupine-ts",
   "version": "0.1.0",
   "description": "",
-  "main": "build/main.js",
+  "main": "build/src/main.js",
   "scripts": {
+	"startDev": "NODE_ENV=development node build/src/main.js",
     "build": "tsc",
     "watch": "tsc --watch",
 	"clean": "rm -r build/*",
