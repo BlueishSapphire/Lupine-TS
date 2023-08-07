@@ -204,6 +204,14 @@ export class ExpectedArgumentError extends ParserError {
 	}
 }
 
+export class ExpectedIdentifierAfterImportError extends ParserError {
+	name = "ExpectedIdentifierAfterImportError";
+
+	constructor(pos: Position) {
+		super(pos, `Expected an identifer after import statement`);
+	}
+}
+
 
 
 // ===== TYPE CHECKER SPECIFIC ERRORS =====

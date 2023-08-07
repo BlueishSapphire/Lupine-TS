@@ -124,6 +124,15 @@ class Parser {
 		} else if (this.matchCurrent(tok.Keyword, 'return')) {
 			return this.parseReturnStatement();
 
+		} else if (this.matchCurrent(tok.Keyword, 'break')) {
+			return this.parseBreakStatement();
+
+		} else if (this.matchCurrent(tok.Keyword, 'continue')) {
+			return this.parseContinueStatement();
+
+		} else if (this.matchCurrent(tok.Keyword, 'import')) {
+			return this.parseImportStatement();
+
 		} else if (this.matchCurrent(tok.Keyword, 'let')) {
 			return this.parseLetDeclaration();
 
@@ -140,9 +149,48 @@ class Parser {
 		}
 	}
 
+	parseImportStatement(): ast.Import {
+		if (!this.matchCurrent(tok.Keyword, "import"))
+			throw new err.InternalParserError(this.pos(), "parseImportStatement called on a non-import token");
+		const start = this.pos();
+		this.next();
+
+		if (!this.matchCurrent(tok.Identifier))
+			throw new err.ExpectedIdentifierAfterImportError(this.pos());
+		
+		const target = new ast.Variable(this.pos(), this.current().value);
+
+		this.eatSemicolon();
+
+		return new ast.Import(start, target);
+	}
+
+	parseContinueStatement(): ast.Continue {
+		if (!this.matchCurrent(tok.Keyword, "continue"))
+			throw new err.InternalParserError(this.pos(), "parseContinueStatement called on a non-continue token");
+		const start = this.pos();
+		this.next();
+
+		this.eatSemicolon();
+
+		return new ast.Continue(start);
+	}
+
+	parseBreakStatement(): ast.Break {
+		if (!this.matchCurrent(tok.Keyword, "break"))
+			throw new err.InternalParserError(this.pos(), "parseBreakStatement called on a non-break token");
+		const start = this.pos();
+		this.next();
+
+		this.eatSemicolon();
+
+		return new ast.Break(start);
+	}
+
 	parseIfStatement(): ast.Statement {
 		if (!this.matchCurrent(tok.Keyword, "if"))
 			throw new err.InternalParserError(this.pos(), "parseIfStatement called on a non-if token");
+		const start = this.pos();
 		this.next();
 
 		log("if");
@@ -155,38 +203,41 @@ class Parser {
 		let _else;
 
 		while (this.matchCurrent(tok.Keyword, "else")) {
+			const nextStart = this.pos();
 			this.next();
 			if (this.matchCurrent(tok.Keyword, "if")) {
 				const condition = this.parseExpression();
 
 				const body = this.parseBlock();
 
-				elseifs.push(new ast.ElseIf(this.pos(), condition, body));
+				elseifs.push(new ast.ElseIf(nextStart, condition, body));
 			} else {
 				const body = this.parseBlock();
 
-				_else = new ast.Else(this.pos(), body);
+				_else = new ast.Else(nextStart, body);
 			}
 		}
 
-		return new ast.If(this.pos(), condition, body, elseifs, _else);
+		return new ast.If(start, condition, body, elseifs, _else);
 	}
 
 	parseReturnStatement(): ast.Return {
 		if (!this.matchCurrent(tok.Keyword, "return"))
 			throw new err.InternalParserError(this.pos(), "parseReturnStatement called on a non-return token");
+		const start = this.pos();
 		this.next();
 
 		const value = this.parseExpression();
 
 		this.eatSemicolon();
 
-		return new ast.Return(this.pos(), value);
+		return new ast.Return(start, value);
 	}
 
 	parseNamedFunctionDeclarationOrAnonFunctionCall(): ast.NamedFuncDecl | ast.AnonFuncCall {
 		if (!this.matchCurrent(tok.Keyword, "fn"))
 			throw new err.InternalParserError(this.pos(), "parseForStatement called on a non-for token");
+		const start = this.pos();
 		this.next();
 
 		if (this.matchCurrent(tok.Identifier)) {
@@ -197,23 +248,26 @@ class Parser {
 
 			const body = this.parseBlock();
 
-			return new ast.NamedFuncDecl(this.pos(), name, params, body);
+			return new ast.NamedFuncDecl(start, name, params, body);
 		} else {
+			const funcStart = this.pos();
+
 			const params = this.parseParameterList();
 
 			const body = this.parseBlock();
 
-			const func = new ast.AnonFuncDecl(this.pos(), params, body);;
+			const func = new ast.AnonFuncDecl(funcStart, params, body);;
 
 			const args = this.parseArgumentList();
 
-			return new ast.AnonFuncCall(this.pos(), func, args);
+			return new ast.AnonFuncCall(start, func, args);
 		}
 	}
 
 	parseForStatement(): ast.For {
 		if (!this.matchCurrent(tok.Keyword, "for"))
 			throw new err.InternalParserError(this.pos(), "parseForStatement called on a non-for token");
+		const start = this.pos();
 		this.next();
 
 		log("for");
@@ -234,12 +288,13 @@ class Parser {
 
 		const body = this.parseBlock();
 
-		return new ast.For(this.pos(), variable, expression, body);
+		return new ast.For(start, variable, expression, body);
 	}
 
 	parseWhileStatement(): ast.While {
 		if (!this.matchCurrent(tok.Keyword, "while"))
 			throw new err.InternalParserError(this.pos(), "parseWhileStatement called on a non-while token");
+		const start = this.pos();
 		this.next();
 
 		log("while");
@@ -248,27 +303,31 @@ class Parser {
 
 		const body = this.parseBlock();
 		
-		return new ast.While(this.pos(), condition, body);
+		return new ast.While(start, condition, body);
 	}
 
 	parseLoopStatement(): ast.Loop {
 		if (!this.matchCurrent(tok.Keyword, "loop"))
 			throw new err.InternalParserError(this.pos(), "parseLoopStatement called on a non-loop token");
+		const start = this.pos();
 		this.next();
 
 		log("loop");
 
+		// TODO make loop take an optional number
+		
 		const body = this.parseBlock();
 		
-		return new ast.Loop(this.pos(), body);
+		return new ast.Loop(start, body);
 	}
 
 	parseConstDeclaration(): ast.Const {
-		log("const");
-
 		if (!this.matchCurrent(tok.Keyword, "const"))
 			throw new err.InternalParserError(this.pos(), "parseConstDeclaration called on a non-const token");
+		const start = this.pos();
 		this.next();
+
+		log("const");
 
 		if (!this.matchCurrent(tok.Identifier))
 			throw new err.ExpectedVariableAfterConstError(this.pos());
@@ -283,16 +342,17 @@ class Parser {
 
 		this.eatSemicolon();
 
-		return new ast.Const(this.pos(), variable, expression);
+		return new ast.Const(start, variable, expression);
 	}
 
 	parseLetDeclaration(): ast.LetValue | ast.LetVariable {
-		log("let");
-		
 		if (!this.matchCurrent(tok.Keyword, "let"))
 			throw new err.InternalParserError(this.pos(), "parseLetDeclaration called on a non-let token");
+		const start = this.pos();
 		this.next();
 
+		log("let");
+		
 		if (!this.matchCurrent(tok.Identifier))
 			throw new err.ExpectedVariableAfterLetError(this.pos());
 		log("-> variable");
@@ -308,11 +368,11 @@ class Parser {
 	
 			this.eatSemicolon();
 	
-			return new ast.LetValue(this.pos(), variable, expression);
+			return new ast.LetValue(start, variable, expression);
 		} else if (this.matchCurrent(tok.Punctuation, ";")) {
 			this.eatSemicolon();
 	
-			return new ast.LetVariable(this.pos(), variable);
+			return new ast.LetVariable(start, variable);
 		} else {
 			throw new err.MissingSemicolonError(this.pos());
 		}
@@ -328,6 +388,8 @@ class Parser {
 	}
 
 	parseAssignmentOrFunctionCall(): ast.Assignment | ast.NamedFuncCall {
+		const start = this.pos();
+
 		const token = this.current();
 		this.next();
 
@@ -341,7 +403,7 @@ class Parser {
 
 			this.eatSemicolon();
 
-			return new ast.NamedFuncCall(this.pos(), variable, args);
+			return new ast.NamedFuncCall(start, variable, args);
 		} else {
 			log("assignment");
 			log("-> operator");
@@ -352,7 +414,7 @@ class Parser {
 			
 			this.eatSemicolon();
 
-			return new ast.Assignment(this.pos(), op, variable, value);
+			return new ast.Assignment(start, op, variable, value);
 		}
 	}
 
@@ -398,6 +460,7 @@ class Parser {
 	parseValue(): ast.Value {
 		log("Parsing value");
 
+		const start = this.pos();
 		const token = this.current();
 
 		if (this.matchCurrent(tok.Number)) {
@@ -419,7 +482,7 @@ class Parser {
 			}
 			this.next();
 
-			return new ast.Number(this.pos(), value);
+			return new ast.Number(start, value);
 		} else if (this.matchCurrent(tok.Quote)) {
 			log("-> string");
 			this.next();
@@ -433,21 +496,21 @@ class Parser {
 				throw new err.InternalParserError(this.pos(), "Expected quote after string");
 			this.next();
 
-			return new ast.String(this.pos(), value);
+			return new ast.String(start, value);
 		} else if (this.matchCurrent(tok.Boolean)) {
 			log("-> bool");
 			const value = token.value === "true";
 			this.next();
 
-			return new ast.Boolean(this.pos(), value);
+			return new ast.Boolean(start, value);
 		} else if (this.matchCurrent(tok.Null)) {
 			log("-> null");
 
 			this.next();
-			return new ast.Null(this.pos());
+			return new ast.Null(start);
 		} else if (this.matchCurrent(tok.Identifier)) {
 			const name = token.value;
-			const variable = new ast.Variable(this.pos(), name);
+			const variable = new ast.Variable(start, name);
 			this.next();
 
 			if (!this.isEOF() && this.matchCurrent(tok.Grouping, "(")) {
@@ -456,7 +519,7 @@ class Parser {
 				log("-> parsing args");
 				let args = this.parseArgumentList();
 
-				return new ast.NamedFuncCall(this.pos(), variable, args);
+				return new ast.NamedFuncCall(start, variable, args);
 			} else {
 				return variable;
 			}
@@ -479,7 +542,7 @@ class Parser {
 				throw new err.UnterminatedArrayLiteralError(this.pos());
 			this.next();
 
-			return new ast.Array(this.pos(), values);
+			return new ast.Array(start, values);
 		} else if (this.matchCurrent(tok.Keyword, "fn")) {
 			log("-> anonymous function");
 			this.next();
@@ -488,12 +551,12 @@ class Parser {
 
 			const body = this.parseBlock();
 
-			const func = new ast.AnonFuncDecl(this.pos(), params, body);
+			const func = new ast.AnonFuncDecl(start, params, body);
 
 			if (this.matchCurrent(tok.Grouping, "(")) { 
 				const args = this.parseArgumentList();
 
-				return new ast.AnonFuncCall(this.pos(), func, args);
+				return new ast.AnonFuncCall(start, func, args);
 			}
 			
 			return func;
@@ -547,7 +610,9 @@ class Parser {
 	parseParameter(): ast.Parameter {
 		if (!this.matchCurrent(tok.Identifier))
 			throw new err.ExpectedArgumentError(this.pos());
+		const start = this.pos();
 		log("parameter");
+
 		const variable = new ast.Variable(this.pos(), this.current().value);
 		this.next();
 
@@ -557,10 +622,10 @@ class Parser {
 
 			const _default = this.parseExpression();
 
-			return new ast.DefaultedParameter(this.pos(), variable, _default);
+			return new ast.DefaultedParameter(start, variable, _default);
 		}
 
-		return new ast.Parameter(this.pos(), variable);
+		return new ast.Parameter(start, variable);
 	}
 
 	parseArgumentList(): ast.Expression[] {
