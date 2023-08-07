@@ -212,6 +212,14 @@ export class ExpectedIdentifierAfterImportError extends ParserError {
 	}
 }
 
+export class ValueDoesNotHaveMembersError extends ParserError {
+	name = "ValueDoesNotHaveMembersError";
+
+	constructor(pos: Position, type: string) {
+		super(pos, `Cannot retrieve member from a value of type ${type}`);
+	}
+}
+
 
 
 // ===== TYPE CHECKER SPECIFIC ERRORS =====

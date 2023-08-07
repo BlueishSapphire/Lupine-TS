@@ -155,10 +155,13 @@ class Parser {
 		const start = this.pos();
 		this.next();
 
+		log("import");
+
 		if (!this.matchCurrent(tok.Identifier))
 			throw new err.ExpectedIdentifierAfterImportError(this.pos());
 		
 		const target = new ast.Variable(this.pos(), this.current().value);
+		this.next();
 
 		this.eatSemicolon();
 
@@ -171,6 +174,8 @@ class Parser {
 		const start = this.pos();
 		this.next();
 
+		log("continue");
+
 		this.eatSemicolon();
 
 		return new ast.Continue(start);
@@ -181,6 +186,8 @@ class Parser {
 			throw new err.InternalParserError(this.pos(), "parseBreakStatement called on a non-break token");
 		const start = this.pos();
 		this.next();
+
+		log("break");
 
 		this.eatSemicolon();
 
