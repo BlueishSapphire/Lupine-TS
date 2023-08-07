@@ -5,7 +5,7 @@ import stdin;
 
 const num = rand.int(1, 10);
 
-for guesses_left in [ 3..1 ] {
+for guesses_left -> 3..1 {
 	print("Your guess: ");
 	let guess = stdin.read_int();
 	if (guess == num) {
