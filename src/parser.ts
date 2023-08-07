@@ -53,7 +53,7 @@ class Parser {
 	}
 
 	private pos(): Position {
-		return this.current().position;
+		return this.input[this.index].position;
 	}
 	private matchCurrent(cls: any, value?: string): boolean {
 		const current = this.current();
@@ -83,7 +83,7 @@ class Parser {
 			statements.push(this.parseStatement());
 		}
 
-		return new ast.Program(statements);
+		return new ast.Program(this.pos(), statements);
 	}
 
 	private parseBlock(): ast.Program {
@@ -151,7 +151,7 @@ class Parser {
 
 		this.eatSemicolon();
 
-		return new ast.Return(value);
+		return new ast.Return(this.pos(), value);
 	}
 
 	parseNamedFunctionDeclarationOrAnonFunctionCall(): ast.NamedFuncDecl | ast.AnonFuncCall {
@@ -160,24 +160,24 @@ class Parser {
 		this.next();
 
 		if (this.matchCurrent(tok.Identifier)) {
-			const name = new ast.Variable(this.current().value);
+			const name = new ast.Variable(this.pos(), this.current().value);
 			this.next();
 
 			const params = this.parseParameterList();
 
 			const body = this.parseBlock();
 
-			return new ast.NamedFuncDecl(name, params, body);
+			return new ast.NamedFuncDecl(this.pos(), name, params, body);
 		} else {
 			const params = this.parseParameterList();
 
 			const body = this.parseBlock();
 
-			const func = new ast.AnonFuncDecl(params, body);;
+			const func = new ast.AnonFuncDecl(this.pos(), params, body);;
 
 			const args = this.parseArgumentList();
 
-			return new ast.AnonFuncCall(func, args);
+			return new ast.AnonFuncCall(this.pos(), func, args);
 		}
 	}
 
@@ -191,7 +191,7 @@ class Parser {
 		if (!this.matchCurrent(tok.Identifier))
 			throw new err.ExpectedVariableAfterForError(this.pos());
 		log("-> variable");
-		const variable = new ast.Variable(this.current().value);
+		const variable = new ast.Variable(this.pos(), this.current().value);
 		this.next();
 
 		if (!this.matchCurrent(tok.Operator, "->"))
@@ -204,7 +204,7 @@ class Parser {
 
 		const body = this.parseBlock();
 
-		return new ast.For(variable, expression, body);
+		return new ast.For(this.pos(), variable, expression, body);
 	}
 
 	parseWhileStatement(): ast.While {
@@ -218,7 +218,7 @@ class Parser {
 
 		const body = this.parseBlock();
 		
-		return new ast.While(condition, body);
+		return new ast.While(this.pos(), condition, body);
 	}
 
 	parseLoopStatement(): ast.Loop {
@@ -230,7 +230,7 @@ class Parser {
 
 		const body = this.parseBlock();
 		
-		return new ast.Loop(body);
+		return new ast.Loop(this.pos(), body);
 	}
 
 	parseConstDeclaration(): ast.Const {
@@ -242,7 +242,7 @@ class Parser {
 
 		if (!this.matchCurrent(tok.Identifier))
 			throw new err.ExpectedVariableAfterConstError(this.pos());
-		const variable = new ast.Variable(this.current().value);
+		const variable = new ast.Variable(this.pos(), this.current().value);
 		this.next();
 
 		if (!this.matchCurrent(tok.Operator, "="))
@@ -253,7 +253,7 @@ class Parser {
 
 		this.eatSemicolon();
 
-		return new ast.Const(variable, expression);
+		return new ast.Const(this.pos(), variable, expression);
 	}
 
 	parseLetDeclaration(): ast.LetValue | ast.LetVariable {
@@ -266,7 +266,7 @@ class Parser {
 		if (!this.matchCurrent(tok.Identifier))
 			throw new err.ExpectedVariableAfterLetError(this.pos());
 		log("-> variable");
-		const variable = new ast.Variable(this.current().value);
+		const variable = new ast.Variable(this.pos(), this.current().value);
 		this.next();
 
 		if (this.matchCurrent(tok.Operator, "=")) {
@@ -278,11 +278,11 @@ class Parser {
 	
 			this.eatSemicolon();
 	
-			return new ast.LetValue(variable, expression);
+			return new ast.LetValue(this.pos(), variable, expression);
 		} else if (this.matchCurrent(tok.Punctuation, ";")) {
 			this.eatSemicolon();
 	
-			return new ast.LetVariable(variable);
+			return new ast.LetVariable(this.pos(), variable);
 		} else {
 			throw new err.MissingSemicolonError(this.pos());
 		}
@@ -302,7 +302,7 @@ class Parser {
 		this.next();
 
 		const name = token.value;
-		const variable = new ast.Variable(name);
+		const variable = new ast.Variable(this.pos(), name);
 
 		if (!this.isEOF() && this.matchCurrent(tok.Grouping, "(")) {
 			log("function call");
@@ -311,7 +311,7 @@ class Parser {
 
 			this.eatSemicolon();
 
-			return new ast.NamedFuncCall(variable, args);
+			return new ast.NamedFuncCall(this.pos(), variable, args);
 		} else {
 			log("assignment");
 			log("-> operator");
@@ -322,7 +322,7 @@ class Parser {
 			
 			this.eatSemicolon();
 
-			return new ast.Assignment(op, variable, value);
+			return new ast.Assignment(this.pos(), op, variable, value);
 		}
 	}
 
@@ -389,7 +389,7 @@ class Parser {
 			}
 			this.next();
 
-			return new ast.Number(value);
+			return new ast.Number(this.pos(), value);
 		} else if (this.matchCurrent(tok.Quote)) {
 			log("-> string");
 			this.next();
@@ -403,21 +403,21 @@ class Parser {
 				throw new err.InternalParserError(this.pos(), "Expected quote after string");
 			this.next();
 
-			return new ast.String(value);
+			return new ast.String(this.pos(), value);
 		} else if (this.matchCurrent(tok.Boolean)) {
 			log("-> bool");
 			const value = token.value === "true";
 			this.next();
 
-			return new ast.Boolean(value);
+			return new ast.Boolean(this.pos(), value);
 		} else if (this.matchCurrent(tok.Null)) {
 			log("-> null");
 
 			this.next();
-			return new ast.Null();
+			return new ast.Null(this.pos());
 		} else if (this.matchCurrent(tok.Identifier)) {
 			const name = token.value;
-			const variable = new ast.Variable(name);
+			const variable = new ast.Variable(this.pos(), name);
 			this.next();
 
 			if (!this.isEOF() && this.matchCurrent(tok.Grouping, "(")) {
@@ -426,7 +426,7 @@ class Parser {
 				log("-> parsing args");
 				let args = this.parseArgumentList();
 
-				return new ast.NamedFuncCall(variable, args);
+				return new ast.NamedFuncCall(this.pos(), variable, args);
 			} else {
 				return variable;
 			}
@@ -449,7 +449,7 @@ class Parser {
 				throw new err.UnterminatedArrayLiteralError(this.pos());
 			this.next();
 
-			return new ast.Array(values);
+			return new ast.Array(this.pos(), values);
 		} else if (this.matchCurrent(tok.Keyword, "fn")) {
 			log("-> anonymous function");
 			this.next();
@@ -458,12 +458,12 @@ class Parser {
 
 			const body = this.parseBlock();
 
-			const func = new ast.AnonFuncDecl(params, body);
+			const func = new ast.AnonFuncDecl(this.pos(), params, body);
 
 			if (this.matchCurrent(tok.Grouping, "(")) { 
 				const args = this.parseArgumentList();
 
-				return new ast.AnonFuncCall(func, args);
+				return new ast.AnonFuncCall(this.pos(), func, args);
 			}
 			
 			return func;
@@ -476,7 +476,7 @@ class Parser {
 		const operatorPrecedence = ops.getPrecedence(operator);
 		const right = this.parseExpression(operatorPrecedence + 1);
 
-		return new ast.BinaryOp(operator, left, right);
+		return new ast.BinaryOp(this.pos(), operator, left, right);
 	}
 
 	parseParameterList(): ast.Parameter[] {
@@ -518,7 +518,7 @@ class Parser {
 		if (!this.matchCurrent(tok.Identifier))
 			throw new err.ExpectedArgumentError(this.pos());
 		log("parameter");
-		const variable = new ast.Variable(this.current().value);
+		const variable = new ast.Variable(this.pos(), this.current().value);
 		this.next();
 
 		if (this.matchCurrent(tok.Operator, "=")) {
@@ -527,10 +527,10 @@ class Parser {
 
 			const _default = this.parseExpression();
 
-			return new ast.DefaultedParameter(variable, _default);
+			return new ast.DefaultedParameter(this.pos(), variable, _default);
 		}
 
-		return new ast.Parameter(variable);
+		return new ast.Parameter(this.pos(), variable);
 	}
 
 	parseArgumentList(): ast.Expression[] {
